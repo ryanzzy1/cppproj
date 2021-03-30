@@ -5,7 +5,7 @@ char * left(const char * str, int n =2);
 int main()
 {
     using namespace std;
-    char * trip = "Hawaii!";
+    const char* trip ="Hawaii!";
     unsigned long n = 12345678;
     int i;
     char * temp;
@@ -28,13 +28,13 @@ unsigned long left (unsigned long num, unsigned ct)
 
     if (ct == 0 || num == 0)
         return 0;
-    while (n / =10)
+    while (n /=10)
         digits++;
     if(digits < ct)
     {
     ct = digits - ct;
     while (ct --)
-        num / = 10;
+        num /= 10;
     return num;
     }
     else
