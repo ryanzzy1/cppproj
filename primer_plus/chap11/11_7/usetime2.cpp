@@ -33,6 +33,7 @@ int main()
     cout << endl;
     
     adjusted = total * 1.5;  // use operator*()
+    // adjusted = total.operator*(1.5);
     cout << "adjusted work time = ";
     adjusted.Show();
     cout << endl;
