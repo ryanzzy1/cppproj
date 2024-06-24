@@ -1,6 +1,6 @@
 // tabtenno.h -- a table-tennis base class
-#ifndef TABTENNO_H_
-#define TABTENNO_H_
+#ifndef TABTENN0_H_
+#define TABTENN0_H_
 #include<string>
 using std::string;
 //simple base class
