@@ -1,6 +1,6 @@
 // using <filesystem> library to write file
 // since c++ 17 statdard
-
+// g++ version >=11.1
 
 #include <iostream>
 #include <filesystem>
