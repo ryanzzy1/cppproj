@@ -19,6 +19,7 @@ int main (int argc, char* argv[])
     char* test = nullptr;
     char test1[] = {'a','b','c'}; 
     char* b[] = {nullptr};
+    int c[3] = {1, 2, 3};
     cout << "char* test, test address:" << &test << "\n";
     if (test == nullptr)
         // cout << "(*test) value: " << (*test) << endl;
@@ -29,6 +30,8 @@ int main (int argc, char* argv[])
          << "\ntest1[0]: " << &test1[0] << "\ntest1[0]:" << test1[0] << "\n";
 
     cout << "cahr* b[], b[] address: " << b << " &b[0] address:"<< &b[0] << endl;
+
+    cout << "int c[3]: c: " << c << "\n&c[0]: " << &c[0] << "\n&c: " << &c <<  "\nc+1: " << c+1 << "\n&c+1: " << &c+1 <<  endl;
 
     return 0;
 }
