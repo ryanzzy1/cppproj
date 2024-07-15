@@ -41,7 +41,7 @@ bool Stack<Type>::push(const Type & item)
 {
     if (top < MAX)
     {
-        items[top++] += item;
+        items[top++] = item;
         return true; 
     }
     else
