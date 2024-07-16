@@ -34,6 +34,10 @@ class Timer
         void reset() {
             running = false;
         }
+
+        bool get_status() {
+            return running;
+        }
 };
 
 int main() {
@@ -50,6 +54,8 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     timer.stop();
     std::cout << "Total elapsed time: " << timer.elapsed() << " seconds." << std::endl;
+    timer.reset();
+    std::cout << "Has timer now reseted? "<< "\n" << (timer.get_status() ? "Not reset yet" : "Yes, already reseted.") << std::endl;
 
     return 0;
 }
