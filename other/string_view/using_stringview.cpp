@@ -23,5 +23,11 @@ int main()
         std::is_same<decltype(begin), decltype(cbegin)>::value == true
         );
     
+    constexpr auto end = str_view.end();
+    constexpr auto cend = str_view.cend();
+    static_assert(
+        *std::prev(end) == 'd' && 'd' == *std::prev(cend) and end == cend
+    );
+
     std::cout << "Done.\n";
 }
