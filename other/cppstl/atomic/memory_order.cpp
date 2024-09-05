@@ -1,3 +1,5 @@
+// ref: https://blog.csdn.net/sinat_38293503/article/details/134612152
+
 #include <thread>
 #include <atomic>
 #include <cassert>
