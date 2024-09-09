@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <string.h>  // for strlen() 
 
 #include <condition_variable>
 #include <thread>
@@ -36,11 +37,18 @@ void run() {
 
 
     std::shared_ptr<vsomeip::payload> its_payload = vsomeip::runtime::get()->create_payload();
-    std::vector<vsomeip::byte_t> its_payload_data;
-    for (vsomeip::byte_t i = 0; i < 10; i++) {
-        its_payload_data.push_back(i % 256);
-    }
-    its_payload->set_data(its_payload_data);
+    // Client Request messsage type std::vector<vsomeip::byte_t>
+    // std::vector<vsomeip::byte_t> its_payload_data;
+    // for (vsomeip::byte_t i = 0; i < 10; i++) {
+    //     its_payload_data.push_back(i % 256);
+    // }
+    // its_payload->set_data(its_payload_data);
+
+    // Request from client side message type const char *
+    const char * client_msg = "\nHere is a test for payload_data from client side.";
+    vsomeip::byte_t * its_payload_data = (vsomeip::byte_t*)client_msg;
+    its_payload->set_data(its_payload_data, (vsomeip::length_t)strlen(client_msg));
+    std::cout << "Client Send payload_data size: "<<(vsomeip::length_t)(strlen(client_msg)) << "\n";
     request->set_payload(its_payload);
     client_app->send(request);
 }
