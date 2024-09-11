@@ -2,6 +2,7 @@
 #include <functional>
 
 int add(int a, int b, int c, int d) {
+    std::cout << "a: " << a << " b: " << b << " c: "<< c << " d: "<< d << std::endl;
     return (a + b + c) * d;
 }
 
