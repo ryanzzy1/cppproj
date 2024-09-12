@@ -15,6 +15,11 @@ int main() {
     }
 
     myVec.push_back('N');
+    std::stringstream ss;
+
+    ss << "New myVec: "<< myVec.data() << "\n";
+
+    std::cout << ss.str() << std::endl;
 
     std::cout << myVec.data() << std::endl;
     
