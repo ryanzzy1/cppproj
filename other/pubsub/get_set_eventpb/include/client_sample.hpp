@@ -19,7 +19,7 @@
 class client_sample {
 public:
     client_sample(bool _use_tcp) :
-        app_(vsomeip::runtime::get()->create_application()),
+        app_(vsomeip::runtime::get()->create_application("Client_subscribe-sample")),
         use_tcp_(_use_tcp) {}
     
     bool init();

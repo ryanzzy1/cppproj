@@ -20,7 +20,7 @@ class service_sample
 {
 public:
     service_sample(uint32_t _cycle) : 
-        app_(vsomeip::runtime::get()->create_application()),
+        app_(vsomeip::runtime::get()->create_application("service_notify-sample")),
         is_registered_(false),
         cycle_(_cycle),
         blocked_(false),

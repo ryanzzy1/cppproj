@@ -99,6 +99,8 @@ void client_sample::on_message(const std::shared_ptr<vsomeip::message> &_respons
             std::shared_ptr<vsomeip::payload> client_set_payload
                 = vsomeip::runtime::get()->create_payload();
             client_set_payload->set_data(client_set_data, sizeof(client_set_data));
+            // without this can't send set payload
+            client_set->set_payload(client_set_payload);
             app_->send(client_set);
         }
     }
