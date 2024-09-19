@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fastdds_request_reply VERSION 1 LANGUAGE CXX)
+project(fastdds_request_reply VERSION 1 LANGUAGES CXX)
 
 # Find requirements
 if(NOT fastcdr_FOUND)
-    find_package(fastcdr 2 REQUIRED PATH /home/think/Fast-DDS/install/lib/cmake)
+    find_package(fastcdr 2 REQUIRED PATHS /home/think/Fast-DDS/install/lib/cmake)
 endif()
 
 if(NOT foonathan_memory_FOUND)
-    find_package(foonathan_memory REQUIRED PATH /home/think/Fast-DDS/install/lib/foonathan_memory/cmake)
+    find_package(foonathan_memory REQUIRED PATHS /home/think/Fast-DDS/install/lib/foonathan_memory/cmake)
 endif()
 
 if(NOT fastdds_FOUND)
-    find_package(fastdds 3 REQUIRED PATH /home/think/Fast-DDS/install/share/fastdds/cmake)
+    find_package(fastdds 3 REQUIRED PATHS /home/think/Fast-DDS/install/share/fastdds/cmake)
 endif()
 
 # Check c++11
@@ -24,14 +24,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
+
 message(STATUS "Configuring ${PROJECT_NAME}...")
 file(GLOB REQUEST_REPLY_TYPES_SOURCES_CXX "types/*.cxx")
 file(GLOB REQUEST_REPLY_SOURCES_CXX "src/*.cxx")
 file(GLOB REQUEST_REPLY_TYPES_SOURCES_CPP "types/*.cpp")
-file(GLOB REQUEST_REPLY_SOURCES_CPP "src/*.cpp")
-file(GLOB )
+file(GLOB REQUEST_REPLY_SOURCES_CPP "src/*.cpp" )
+file(GLOB REQUEST_REPLY_HEADERS_HPP "include/*.hpp")
 
-add_executable(request_reply ${REQUEST_REPLY_SOURCES_CXX} ${REQUEST_REPLY_SOURCES_CPP} ${REQUEST_REPLY_TYPES_SOURCES_CXX} ${REQUEST_REPLY_TYPES_SOURCES_CPP})
+add_executable(request_reply ${REQUEST_REPLY_SOURCES_CXX} ${REQUEST_REPLY_SOURCES_CPP} ${REQUEST_REPLY_TYPES_SOURCES_CXX} ${REQUEST_REPLY_TYPES_SOURCES_CPP} ${REQUEST_REPLY_HEADERS_HPP})
 target_compile_definitions(request_reply PRIVATE
     $<$<AND:$<NOT:$<BOOL:${WIN32}>>,$<STREQUAL:"${CMAKE_BUILD_TYPE}", "Debug">>:__DEBUG>
     $<$<BOOL:${INTERNAL_DEBUG}>:__INTERNALDEBUG> # Internal debug activated
@@ -43,7 +44,7 @@ install(TARGETS request_reply
     RUNTIME DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/${BIN_INSTALL_DIR})
 
 # copy xml files to build dir
-file(GLOB_RECURSE XML_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.xml)
+file(GLOB_RECURSE XML_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.xml)
 # for each xml file detected
 foreach(XML_FILE_COMPLETE_PATH ${XML_FILES})
     # obtain the file name 
