@@ -5,7 +5,8 @@
 #include <string>
 
 #include "CLIParser.hpp"
-
+namespace eprosima{
+namespace fastdds{
 namespace request_reply{
 
 class Application
@@ -22,4 +23,6 @@ public:
             const std::string& service_name);
 };
 } // namespace request_reply
+} // namespace fastdds
+} // namespace eprosima
 #endif

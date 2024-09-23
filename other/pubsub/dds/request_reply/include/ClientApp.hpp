@@ -33,38 +33,49 @@
 #include "types/Calculator.hpp"
 #include "types/CalculatorPubSubTypes.hpp"
 
+namespace eprosima{
+namespace fastdds{
 namespace request_reply{
 
 using namespace eprosima::fastdds::dds;
 
+
 class ClientApp : public Application, public DomainParticipantListener
 {
 public:
+
     ClientApp(
             const CLIParser::config& config,
             const std::string& service_name);
 
     ~ClientApp();
 
+    //! Run subscriber
     void run() override;
 
+    //! Trigger the end of execution
     void stop() override;
 
+    //! Participant discovery method
     void on_participant_discovery(
             DomainParticipant* participant,
-            rtps::ParticpantDiscoveryStatus status,
+            rtps::ParticipantDiscoveryStatus status,
             const ParticipantBuiltinTopicData& info,
-            bool should_be_ignored) override;
-    
+            bool& should_be_ignored) override;
+
+    //! Publication matched method
     void on_publication_matched(
             DataWriter* writer,
             const PublicationMatchedStatus& info) override;
 
+    //! Subscription matched method
     void on_subscription_matched(
             DataReader* reader,
             const SubscriptionMatchedStatus& info) override;
 
-    void on_data_available(DataReader* reader) override;
+    //! Reply received method
+    void on_data_available(
+            DataReader* reader) override;
 
 private:
 
@@ -77,15 +88,15 @@ private:
 
     void create_request_entities(
             const std::string& service_name);
-    
+
     void create_reply_entities(
             const std::string& service_name);
-    
+
     bool send_requests();
 
     bool send_request(
-            const CalculatorOperationType& request);
-    
+            const CalculatorRequestType& request);
+
     bool is_stopped();
 
     void wait_for_replies();
@@ -124,7 +135,7 @@ private:
 
     std::atomic<bool> stop_;
 
-    std::map<rtps::SampleIdentity, bool> request_status_;
+    std::map<rtps::SampleIdentity, bool> requests_status_;
 };
 
 template<>
@@ -137,7 +148,10 @@ Topic* ClientApp::create_topic<CalculatorReplyTypePubSubType>(
         const std::string& topic_name,
         TypeSupport& type);
 
-} // namespace request_reply
 
+
+} // namespace request_reply
+} // namespace fastdds
+} // namespace eprsima
 #endif
 

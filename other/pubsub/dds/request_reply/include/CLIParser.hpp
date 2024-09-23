@@ -26,10 +26,11 @@
 #ifndef CLIPARSER_HPP
 #define CLIPARSER_HPP
 
-
+namespace eprosima{
+namespace fastdds{
 namespace request_reply {
 
-using dds::Log;
+using eprosima::fastdds::dds::Log;
 
 class CLIParser
 {
@@ -262,6 +263,7 @@ private:
 };
 
 } // namespace request_reply
-
+} // namespace fastdds
+} // namespace eprsima
 
 #endif // CLIPARSER_HPP

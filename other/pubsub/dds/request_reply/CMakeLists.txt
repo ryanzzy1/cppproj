@@ -24,6 +24,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
+include_directories(
+    ${PROJECT_SOURCE_DIR}
+)
+
 
 message(STATUS "Configuring ${PROJECT_NAME}...")
 file(GLOB REQUEST_REPLY_TYPES_SOURCES_CXX "types/*.cxx")
@@ -32,7 +36,15 @@ file(GLOB REQUEST_REPLY_TYPES_SOURCES_CPP "types/*.cpp")
 file(GLOB REQUEST_REPLY_SOURCES_CPP "src/*.cpp" )
 file(GLOB REQUEST_REPLY_HEADERS_HPP "include/*.hpp")
 
-add_executable(request_reply ${REQUEST_REPLY_SOURCES_CXX} ${REQUEST_REPLY_SOURCES_CPP} ${REQUEST_REPLY_TYPES_SOURCES_CXX} ${REQUEST_REPLY_TYPES_SOURCES_CPP} ${REQUEST_REPLY_HEADERS_HPP})
+
+add_executable(request_reply 
+        ${REQUEST_REPLY_SOURCES_CXX} 
+        ${REQUEST_REPLY_SOURCES_CPP}
+        ${REQUEST_REPLY_TYPES_SOURCES_CXX} 
+        ${REQUEST_REPLY_TYPES_SOURCES_CPP} 
+        ${REQUEST_REPLY_HEADERS_HPP}
+        )
+
 target_compile_definitions(request_reply PRIVATE
     $<$<AND:$<NOT:$<BOOL:${WIN32}>>,$<STREQUAL:"${CMAKE_BUILD_TYPE}", "Debug">>:__DEBUG>
     $<$<BOOL:${INTERNAL_DEBUG}>:__INTERNALDEBUG> # Internal debug activated

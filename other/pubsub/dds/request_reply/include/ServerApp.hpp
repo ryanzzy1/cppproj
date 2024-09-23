@@ -29,37 +29,49 @@
 #include "Application.hpp"
 #include "types/CalculatorPubSubTypes.hpp"
 
+
+namespace eprosima {
+namespace fastdds {
 namespace request_reply{
 
-using eprosima::fastdds::dds;
+using namespace eprosima::fastdds::dds;
+
 
 class ServerApp : public Application, public DomainParticipantListener
 {
 public:
 
-    ServerApp(const std::string& service_name);
+    ServerApp(
+            const std::string& service_name);
 
     ~ServerApp();
 
+    //! Run server
     void run() override;
 
+    //! Stop server
     void stop() override;
 
+    //! Participant discovery method
     void on_participant_discovery(
-        DomainParticipant* participant,
-        rtps::ParticipantDiscoveryStatus status,
-        const ParticipantBuiltinTopicData& info,
-        bool& should_be_ignored) override;
-    
-    void on_publication_matched(
-        DataWriter* writer,
-        const PublicationMatchedStatus& info) override;
+            DomainParticipant* participant,
+            rtps::ParticipantDiscoveryStatus status,
+            const ParticipantBuiltinTopicData& info,
+            bool& should_be_ignored) override;
 
+    //! Publication matched method
+    void on_publication_matched(
+            DataWriter* writer,
+            const PublicationMatchedStatus& info) override;
+
+    //! Subscription matched method
     void on_subscription_matched(
-        DataReader* reader,
-        const SubscriptionMatchedStatus& info) override;
-    
-    void on_data_available(DataReader* reader) override;
+            DataReader* reader,
+            const SubscriptionMatchedStatus& info) override;
+
+    //! Request received method
+    void on_data_available(
+            DataReader* reader) override;
 
 private:
 
@@ -67,22 +79,22 @@ private:
 
     template<typename TypeSupportClass>
     Topic* create_topic(
-        const std::string& topic_name,
-        TypeSupport& type);
-    
+            const std::string& topic_name,
+            TypeSupport& type);
+
     void create_request_entities(
-        const std::string& service_name);
+            const std::string& service_name);
 
     void create_reply_entities(
-        const std::string& service_name);
-    
+            const std::string& service_name);
+
     bool is_stopped();
 
     void reply_routine();
 
     bool calculate(
-        const CalculatorOperationType& request,
-        std::int32_t& result);
+            const CalculatorRequestType& request,
+            std::int32_t& result);
 
     DomainParticipant* participant_;
 
@@ -91,10 +103,10 @@ private:
     Topic* request_topic_;
 
     Subscriber* subscriber_;
-    
-    DataReader* datareader_;
 
-    TypeSupport reply_reader_;
+    DataReader* request_reader_;
+
+    TypeSupport reply_type_;
 
     Topic* reply_topic_;
 
@@ -119,6 +131,7 @@ private:
     std::queue<Request> requests_;
 
     std::thread reply_thread_;
+
 };
 
 template<>
@@ -132,5 +145,6 @@ Topic* ServerApp::create_topic<CalculatorReplyTypePubSubType>(
         TypeSupport& type);
 
 } // namespace request_reply
-
+} // namespace fastdds
+} // namespace eprsima
 #endif

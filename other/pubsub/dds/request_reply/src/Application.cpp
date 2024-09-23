@@ -6,6 +6,8 @@
 
 using namespace eprosima::fastdds::dds;
 
+namespace eprosima {
+namespace fastdds {
 namespace request_reply{
 
 std::shared_ptr<Application> Application::make_app(
@@ -36,5 +38,6 @@ std::shared_ptr<Application> Application::make_app(
     return entity;
 }
 
-
-}
+} // namespace request_reply
+} // namespace fastdds
+} // namespace eprsima

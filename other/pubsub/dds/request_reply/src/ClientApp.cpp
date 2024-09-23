@@ -23,16 +23,21 @@
 #include <fastdds/rtps/common/InstanceHandle.hpp>
 #include <fastdds/rtps/common/WriteParams.hpp>
 
-#include "CLIParser.hpp"
+#include "include/CLIParser.hpp"
 #include "types/Calculator.hpp"
 #include "types/CalculatorPubSubTypes.hpp"
 
+
+namespace eprosima {
+namespace fastdds {
 namespace request_reply {
 
 using namespace eprosima::fastdds::dds;
 
-// help function declaration
+/******* HELPER FUNCTIONS DECLARATIONS *******/
 namespace detail {
+
+template<typename TypeSupportClass>
 Topic* create_topic(
         const std::string& topic_name,
         DomainParticipant* participant,
@@ -40,7 +45,7 @@ Topic* create_topic(
 
 } // namespace detail
 
-// class clientapp definition
+/******** CLIENTAPP CLASS DEFINITION ********/
 ClientApp::ClientApp(
         const CLIParser::config& config,
         const std::string& service_name)
@@ -69,7 +74,7 @@ ClientApp::~ClientApp()
 {
     if (nullptr != participant_)
     {
-        // delete DDS entities contained within the DomainParticipant
+        // Delete DDS entities contained within the DomainParticipant
         participant_->delete_contained_entities();
 
         // Delete DomainParticipant
@@ -86,16 +91,17 @@ void ClientApp::run()
     {
         std::unique_lock<std::mutex> lock(mtx_);
         cv_.wait(lock, [&]()
-            {
-                return server_matched_status_.is_any_server_matched() || is_stopped();
-            });
+                {
+                    return server_matched_status_.is_any_server_matched() || is_stopped();
+                });
     }
 
-    if(!is_stopped())
+    if (!is_stopped())
     {
         request_reply_debug("ClientApp",
-                "One server is available, Waiting for some time to ensure matching on the server side");
+                "One server is available. Waiting for some time to ensure matching on the server side");
 
+        // TODO(eduponz): This wait should be conditioned to upcoming fully-matched API on the endpoints
         std::unique_lock<std::mutex> lock(mtx_);
         cv_.wait_for(lock, std::chrono::seconds(1), [&]()
                 {
@@ -103,7 +109,7 @@ void ClientApp::run()
                 });
     }
 
-    if(!is_stopped())
+    if (!is_stopped())
     {
         if (!send_requests())
         {
@@ -121,8 +127,8 @@ void ClientApp::stop()
 }
 
 void ClientApp::on_participant_discovery(
-        DomainParticipant*,
-        rtps::ParticipantDiscoveryStatus staus,
+        DomainParticipant* /* participant */,
+        rtps::ParticipantDiscoveryStatus status,
         const ParticipantBuiltinTopicData& info,
         bool& should_be_ignored)
 {
@@ -146,22 +152,22 @@ void ClientApp::on_participant_discovery(
         if (CLIParser::EntityKind::SERVER != entity_kind)
         {
             should_be_ignored = true;
-            request_reply_debug("ClientApp", "Ignoring" << status_str << " "
-                                                        << CLIParser::parse_entity_kind(entity_kind)
-                                                        << ": " << remote_participant_guid_prefix);
+            request_reply_debug("ClientApp", "Ignoring " << status_str << " "
+                                                         << CLIParser::parse_entity_kind(entity_kind)
+                                                         << ": " << remote_participant_guid_prefix);
         }
     }
 
     if (!should_be_ignored)
     {
         std::string server_str = CLIParser::parse_entity_kind(CLIParser::EntityKind::SERVER);
-        
+
         if (status == rtps::ParticipantDiscoveryStatus::DISCOVERED_PARTICIPANT)
         {
             request_reply_debug("ClientApp", server_str << " " << status_str << ": " << remote_participant_guid_prefix);
         }
         else if (status == rtps::ParticipantDiscoveryStatus::REMOVED_PARTICIPANT ||
-                 status == rtps::ParticipantDisvoceryStatus::DROPPED_PARTICIPANT)
+                status == rtps::ParticipantDiscoveryStatus::DROPPED_PARTICIPANT)
         {
             request_reply_debug("ClientApp", server_str << " " << status_str << ": " << remote_participant_guid_prefix);
         }
@@ -169,12 +175,12 @@ void ClientApp::on_participant_discovery(
 }
 
 void ClientApp::on_publication_matched(
-        DataWriter*,
+        DataWriter* /* writer */,
         const PublicationMatchedStatus& info)
 {
     std::lock_guard<std::mutex> lock(mtx_);
 
-    rtps::GuidPrefix server_guid_prefix = rtps::iHandle2GUID(info.last_subscription_handle).guidPrefix;
+    rtps::GuidPrefix_t server_guid_prefix = rtps::iHandle2GUID(info.last_subscription_handle).guidPrefix;
 
     if (info.current_count_change == 1)
     {
@@ -185,18 +191,18 @@ void ClientApp::on_publication_matched(
     else if (info.current_count_change == -1)
     {
         request_reply_debug("ClientApp", "Remote request reader unmatched.");
-        server_matched_status_.matche_request_reader(server_guid_prefix, false);
+        server_matched_status_.match_request_reader(server_guid_prefix, false);
     }
     else
     {
-        request_reply_debug("ClientApp", info.current_count_change
-                << " is not avalid value for subscriptionMatchedStatus current count change");               
+        request_reply_error("ClientApp", info.current_count_change
+                << " is not a valid value for SubscriptionMatchedStatus current count change");
     }
     cv_.notify_all();
 }
 
 void ClientApp::on_subscription_matched(
-        DataReader* ,
+        DataReader* /* reader */,
         const SubscriptionMatchedStatus& info)
 {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -211,13 +217,13 @@ void ClientApp::on_subscription_matched(
     }
     else if (info.current_count_change == -1)
     {
-        request_reply_debug("ClientApp", "Remote reply wrtiter unmatched.");
+        request_reply_debug("ClientApp", "Remote reply writer unmatched.");
         server_matched_status_.match_reply_writer(server_guid_prefix, false);
     }
     else
     {
-        request_reply_debug("ClientApp", info.current_count_change
-                << " is not a valid value for SubsriptionMatchedStatus current count change");
+        request_reply_error("ClientApp", info.current_count_change
+                << " is not a valid value for SubscriptionMatchedStatus current count change");
     }
     cv_.notify_all();
 }
@@ -237,33 +243,33 @@ void ClientApp::on_data_available(
             rtps::GuidPrefix_t server_guid_prefix = rtps::iHandle2GUID(info.publication_handle).guidPrefix;
 
             auto request_status = requests_status_.find(info.related_sample_identity);
-        
+
             if (requests_status_.end() != request_status)
             {
                 if (!request_status->second)
                 {
                     request_status->second = true;
-                    request_reply_debug("ClientApp", "Reply received from server "
+                    request_reply_info("ClientApp", "Reply received from server "
                             << server_guid_prefix << " to request with ID '" << request_status->first.sequence_number()
-                             << "' with result: '" <<reply.result() << "'");    
+                            << "' with result: '" << reply.result() << "'");
                 }
-                else 
+                else
                 {
                     request_reply_debug("ClientApp", "Duplicate reply received from server "
                             << server_guid_prefix << " to request with ID '" << request_status->first.sequence_number()
                             << "' with result: '" << reply.result() << "'");
                     continue;
                 }
-            } 
-            else 
+            }
+            else
             {
-                request_reply_debug("ClientApp",
+                request_reply_error("ClientApp",
                         "Reply received from server " << server_guid_prefix << " with unknown request ID '"
                                                       << info.related_sample_identity.sequence_number() << "'");
                 continue;
             }
 
-            // Check if all response have been received
+            // Check if all responses have been received
             if (requests_status_.size() == 4)
             {
                 bool all_responses_received = true;
@@ -301,7 +307,7 @@ void ClientApp::create_participant()
     DomainParticipantExtendedQos participant_qos;
     factory->get_participant_extended_qos_from_default_profile(participant_qos);
 
-    partticipant_qos.user_data().data_vec().push_back(static_cast<uint8_t>(CLIParser::EntityKind::CLIENT));
+    participant_qos.user_data().data_vec().push_back(static_cast<uint8_t>(CLIParser::EntityKind::CLIENT));
 
     participant_ = factory->create_participant(participant_qos.domainId(), participant_qos, this, participant_mask);
 
@@ -330,10 +336,10 @@ Topic* ClientApp::create_topic<CalculatorReplyTypePubSubType>(
 void ClientApp::create_request_entities(
         const std::string& service_name)
 {
-    // create the request topic
+    // Create the request topic
     request_topic_ = create_topic<CalculatorRequestTypePubSubType>("rq/" + service_name, request_type_);
 
-    // create the publisher
+    // Create the publisher
     PublisherQos pub_qos = PUBLISHER_QOS_DEFAULT;
 
     if (RETCODE_OK != participant_->get_default_publisher_qos(pub_qos))
@@ -343,7 +349,7 @@ void ClientApp::create_request_entities(
 
     publisher_ = participant_->create_publisher(pub_qos, nullptr, StatusMask::none());
 
-    if(nullptr == publisher_)
+    if (nullptr == publisher_)
     {
         throw std::runtime_error("Publisher initialization failed");
     }
@@ -351,7 +357,7 @@ void ClientApp::create_request_entities(
     // Create the writer
     DataWriterQos writer_qos = DATAWRITER_QOS_DEFAULT;
 
-    if(RETCODE_OK != publisher_->get_default_datawriter_qos(writer_qos))
+    if (RETCODE_OK != publisher_->get_default_datawriter_qos(writer_qos))
     {
         throw std::runtime_error("Failed to get default datawriter qos");
     }
@@ -360,22 +366,23 @@ void ClientApp::create_request_entities(
 
     if (nullptr == request_writer_)
     {
-        throw std::runtime_error("Request writer initilazation failed");
+        throw std::runtime_error("Request writer initialization failed");
     }
 }
 
 void ClientApp::create_reply_entities(
-        cosnt std::string& service_name)
+        const std::string& service_name)
 {
     // Create the reply topic
     reply_topic_ = create_topic<CalculatorReplyTypePubSubType>("rr/" + service_name, reply_type_);
 
-    reply_topic_filter_expression_ = "client_id =  '" + 
+    reply_topic_filter_expression_ = "client_id = '" +
             TypeConverter::to_string(participant_->guid().guidPrefix) + "'";
-    
-    reply_cf_topic_ = participant_->create_contentfilteredtopic("rr/" + sercie_name + "_cft", reply_topic_,
+
+    reply_cf_topic_ = participant_->create_contentfilteredtopic("rr/" + service_name + "_cft", reply_topic_,
                     reply_topic_filter_expression_,
                     reply_topic_filter_parameters_);
+
     if (nullptr == reply_cf_topic_)
     {
         throw std::runtime_error("Failed to create CFT");
@@ -384,14 +391,14 @@ void ClientApp::create_reply_entities(
     // Create the subscriber
     SubscriberQos sub_qos = SUBSCRIBER_QOS_DEFAULT;
 
-    if(RETCODE_OK != participant_->get_default_subscriber_qos(sub_qos))
+    if (RETCODE_OK != participant_->get_default_subscriber_qos(sub_qos))
     {
         throw std::runtime_error("Failed to get default subscriber qos");
     }
 
     subscriber_ = participant_->create_subscriber(sub_qos, nullptr, StatusMask::none());
 
-    if(nullptr == subscriber_)
+    if (nullptr == subscriber_)
     {
         throw std::runtime_error("Subscriber initialization failed");
     }
@@ -404,7 +411,7 @@ void ClientApp::create_reply_entities(
         throw std::runtime_error("Failed to get default datareader qos");
     }
 
-    reply_reader_ = subscriber_->create_datareader(reply_cf_topic_, reader_qos_, nullptr, StatusMask::none());
+    reply_reader_ = subscriber_->create_datareader(reply_cf_topic_, reader_qos, nullptr, StatusMask::none());
 
     if (nullptr == reply_reader_)
     {
@@ -412,7 +419,7 @@ void ClientApp::create_reply_entities(
     }
 }
 
-bool ClientApp::send_request()
+bool ClientApp::send_requests()
 {
     CalculatorRequestType request;
 
@@ -437,7 +444,7 @@ bool ClientApp::send_request()
 
     if (ret)
     {
-        request.operatiON(CalculatorOperationType::DIVISION);
+        request.operation(CalculatorOperationType::DIVISION);
         ret = send_request(request);
     }
 
@@ -447,6 +454,8 @@ bool ClientApp::send_request()
 bool ClientApp::send_request(
         const CalculatorRequestType& request)
 {
+    // Taking the mutex here to avoid taking a reply on the on_data_available callback
+    // coming from a very fast server who replied before the request_status_ entry was set
     std::lock_guard<std::mutex> lock(mtx_);
 
     rtps::WriteParams wparams;
@@ -455,9 +464,9 @@ bool ClientApp::send_request(
     requests_status_[wparams.sample_identity()] = false;
 
     request_reply_info("ClientApp",
-            "Request sent with ID '" << wparams.smaple_identity().sequence_number() <<
+            "Request sent with ID '" << wparams.sample_identity().sequence_number() <<
             "': '" << TypeConverter::to_string(request) << "'");
-    
+
     return (RETCODE_OK == ret);
 }
 
@@ -469,14 +478,14 @@ bool ClientApp::is_stopped()
 void ClientApp::wait_for_replies()
 {
     std::unique_lock<std::mutex> lock(mtx_);
-    cv_.wait(lock,[&]()
+    cv_.wait(lock, [&]()
             {
                 return is_stopped();
             });
 }
 
-// Helper fucntion definitions
-namespace detail{
+/******* HELPER FUNCTIONS DEFINITIONS *******/
+namespace detail {
 
 template<typename TypeSupportClass>
 Topic* create_topic(
@@ -497,13 +506,13 @@ Topic* create_topic(
         throw std::runtime_error("Failed to create type");
     }
 
-    // Register Type
+    // Register the type
     if (RETCODE_OK != type.register_type(participant))
     {
         throw std::runtime_error("Failed to register type");
     }
 
-    // create topic
+    // Create the topic
     TopicQos topic_qos = TOPIC_QOS_DEFAULT;
 
     if (RETCODE_OK != participant->get_default_topic_qos(topic_qos))
@@ -520,6 +529,9 @@ Topic* create_topic(
 
     return topic;
 }
+
 } // namespace detail
 
 }// namespace request_reply
+} // namespace fastdds
+} // namespace eprsima

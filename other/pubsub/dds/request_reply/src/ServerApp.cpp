@@ -28,10 +28,12 @@
 #include <fastdds/rtps/common/WriteParams.hpp>
 #include <fastdds/rtps/participant/ParticipantDiscoveryInfo.hpp>
 
-#include "CLIParser.hpp"
+#include "include/CLIParser.hpp"
 #include "types/Calculator.hpp"
 #include "types/CalculatorPubSubTypes.hpp"
 
+namespace eprosima{
+namespace fastdds{
 namespace request_reply{
 
 // help fucntion declarations
@@ -333,7 +335,7 @@ void ServerApp::create_request_entities(
 void ServerApp::create_reply_entities(
         const std::string& service_name)
 {
-    reply_topic_ = create_topic<CalculatorReplyTypePubSubType>("rr/" + service_name reply_type_);
+    reply_topic_ = create_topic<CalculatorReplyTypePubSubType>("rr/" + service_name, reply_type_);
 
     // Create the publisher
     PublisherQos pub_qos = PUBLISHER_QOS_DEFAULT;
@@ -363,7 +365,7 @@ void ServerApp::create_reply_entities(
 
     if (nullptr == reply_writer_)
     {
-        throw std::runtime_erros("Reply writer initialization failed");
+        throw std::runtime_error("Reply writer initialization failed");
     }
 }
 
@@ -413,7 +415,7 @@ void ServerApp::reply_routine()
             std::int32_t result;
 
             // If the calculation fails, ignore the request, as the failure cause is a malformed request
-            If (!calculate(*request.request, result))
+            if (!calculate(*request.request, result))
             {
                 request_reply_error("ServerAPP",
                         "Failed to calculate result for request from client " << client_guid_prefix);
@@ -427,7 +429,7 @@ void ServerApp::reply_routine()
 
             // Prepare the WriteParams to link the reply to the request
             rtps::WriteParams write_params;
-            rtps::SequenceNumber_t request_if = request.info.sample_identity.sequence_number();
+            rtps::SequenceNumber_t request_id = request.info.sample_identity.sequence_number();
             write_params.related_sample_identity().writer_guid(request.info.sample_identity.writer_guid());
             write_params.related_sample_identity().sequence_number(request_id);
 
@@ -548,3 +550,5 @@ Topic* create_topic(
 } // namespace detail
 
 } // namespace request_reply
+} // namespace fastdds
+} // namespace eprsima

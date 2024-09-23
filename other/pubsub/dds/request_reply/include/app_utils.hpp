@@ -19,7 +19,11 @@
 
 #include "types/Calculator.hpp"
 
+using namespace eprosima::fastdds::rtps;
+namespace eprosima{
+namespace fastdds{
 namespace request_reply{
+
 class RemoteServerMatchedStatus{
 public:
     void match_request_reader(
@@ -115,7 +119,7 @@ public:
 
         auto status = matched_status_.find(guid_prefix);
 
-        if (status != matched_status.end())
+        if (status != matched_status_.end())
         {
             is_client_unmatched = !status->second.none();
         }
@@ -253,14 +257,14 @@ struct Timestamp
 #endif
 
 #define request_reply_info(context, message) \
-    std::cout << C_B_WHITE << Timestamp.now() << C_B_GREEN << " [INFO] " << C_B_WHITE \
+    std::cout << C_B_WHITE << Timestamp::now() << C_B_GREEN << " [INFO] " << C_B_WHITE \
               << "[" << context << "] " << C_DEF << message << std::endl
 
 #define request_reply_error(context, message) \
-    std::cout << C_B_WHITE << Timestamp.now() << C_B_RED << " [ERROR] " << C_B_WHITE \
+    std::cout << C_B_WHITE << Timestamp::now() << C_B_RED << " [ERROR] " << C_B_WHITE \
               << "[" << context << "] " << C_DEF << message << std::endl
 
-}
-
-
+}   // namespace request_reply
+}   // namespace fastdds
+}   // namespace eprosima
 #endif

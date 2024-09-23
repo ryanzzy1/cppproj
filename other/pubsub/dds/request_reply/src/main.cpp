@@ -18,7 +18,7 @@
 
 using eprosima::fastdds::dds::Log;
 
-using namespace request_reply;
+using namespace eprosima::fastdds::request_reply;
 
 std::function<void(int)> stop_app_handler;
 
@@ -31,9 +31,10 @@ int main(int argc, char** argv)
 {
     auto ret = EXIT_SUCCESS;
     const std::string service_name = "calculator_service";
+    
     CLIParser::config config = CLIParser::parse_cli_options(argc, argv);
 
-    std::string app_name == CLIParser::parse_entity_kind(config.entity);
+    std::string app_name = CLIParser::parse_entity_kind(config.entity);
     std::shared_ptr<Application> app;
 
     try
@@ -48,7 +49,7 @@ int main(int argc, char** argv)
 
     if (EXIT_FAILURE != ret)
     {
-        std::thread thread(&Application::runn, app);
+        std::thread thread(&Application::run, app);
 
         stop_app_handler = [&](int signum)
                 {
