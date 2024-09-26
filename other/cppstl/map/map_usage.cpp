@@ -44,6 +44,13 @@ int main()
         }
 
     }
+
+        auto ss = employees.find("Tina");
+        if( employees.end() != ss)
+        {
+
+            std::cout << ss->first << ": " << ss->second <<" not right.\n";
+        }
     
 
 
