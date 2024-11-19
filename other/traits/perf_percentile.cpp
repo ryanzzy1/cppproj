@@ -66,9 +66,10 @@ int main ()
     size_t elem = 0;
     cout << "size: " << times_.size() << endl;
     elem = static_cast<size_t>(times_.size() * 0.5);
+     cout << "elem: " << elem << endl;
     if (elem > 0 && elem <= times_.size())
     {
-        cout << "--elem: " << --elem << "--" << times_.at(--elem).count() << endl;
+        // cout << "--elem: " << elem << "--" << times_.at(--elem).count() << endl;
         stats.percentile_50_ = times_.at(--elem).count();
         cout << "50%: " << stats.percentile_50_ << endl;
     }
