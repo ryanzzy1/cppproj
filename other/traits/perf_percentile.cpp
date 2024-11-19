@@ -78,6 +78,40 @@ int main ()
         stats.percentile_50_ = NAN;
     }
 
+    elem = static_cast<size_t>(times_.size() * 0.9);
+    if (elem > 0 && elem <= times_.size())
+    {
+        stats.percentile_90_ = times_.at(--elem).count();
+        cout << "90%: " << stats.percentile_90_ << endl;
+    }
+    else
+    {
+        stats.percentile_90_ = NAN;
+    }
+
+    elem = static_cast<size_t>(times_.size() * 0.99);
+    if (elem > 0 && elem <= times_.size())
+    {
+        stats.percentile_99_ = times_.at(--elem).count();
+        cout << "99%: " << stats.percentile_99_ << endl;
+    }
+    else
+    {
+        stats.percentile_99_ = NAN;
+    }
+
+    elem = static_cast<size_t>(times_.size() * 0.9999);
+    if (elem > 0 && elem <= times_.size())
+    {
+        stats.percentile_9999_ = times_.at(--elem).count();
+        cout << "99.99%: " << stats.percentile_9999_ << endl;
+    }
+    else
+    {
+        stats.percentile_9999_ = NAN;
+    }
+
+
     return 0;
 }
 
