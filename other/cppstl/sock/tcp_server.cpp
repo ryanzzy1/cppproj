@@ -51,6 +51,7 @@ struct LtReq
         bool led24_rq;
     };
 
+bool exitFlag = false;
 int main()
 {
 	int i_listenfd, i_connfd;
@@ -111,7 +112,8 @@ int main()
 		}
 
 
-		while(1)	//循环 接受客户端发来的消息并作处理(小写转大写)后回写给客户端
+		// while(1)	//循环 接受客户端发来的消息并作处理(小写转大写)后回写给客户端
+		while(!exitFlag)
 		{
 			memset(recvbuffer, 0 ,sizeof(recvbuffer));
 			if((nrecvSize = read(i_connfd, recvbuffer, MAXSIZE)) < 0)

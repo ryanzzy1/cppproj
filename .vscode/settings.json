@@ -58,5 +58,6 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "bitset": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/think/git-hub/cppproj/other/pubsub/sample_service"
 }
