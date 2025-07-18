@@ -1,0 +1,18 @@
+322765 13:53:38.818019 restart_syscall(<... resuming interrupted read ...>) = ? ERESTART_RESTARTBLOCK (Interrupted by signal)
+322765 13:53:45.341473 --- SIGWINCH {si_signo=SIGWINCH, si_code=SI_KERNEL} ---
+322765 13:53:45.341671 restart_syscall(<... resuming interrupted restart_syscall ...>) = ? ERESTART_RESTARTBLOCK (Interrupted by signal)
+322765 13:53:51.914198 --- SIGRT_21 {si_signo=SIGRT_21, si_code=SI_USER, si_pid=323035, si_uid=1000} ---
+322765 13:53:51.914307 write(1, "HelloWorld Sig=53\n", 18) = 18
+322765 13:53:51.914694 rt_sigreturn({mask=[]}) = -1 EINTR (Interrupted system call)
+322765 13:53:51.915297 clock_nanosleep(CLOCK_REALTIME, 0, {tv_sec=29, tv_nsec=688475720}, {tv_sec=27, tv_nsec=689445342}) = ? ERESTART_RESTARTBLOCK (Interrupted by signal)
+322765 13:53:53.914790 --- SIGRT_21 {si_signo=SIGRT_21, si_code=SI_USER, si_pid=323035, si_uid=1000} ---
+322765 13:53:53.914962 write(1, "HelloWorld Sig=53\n", 18) = 18
+322765 13:53:53.915140 rt_sigreturn({mask=[]}) = -1 EINTR (Interrupted system call)
+322765 13:53:53.915234 clock_nanosleep(CLOCK_REALTIME, 0, {tv_sec=27, tv_nsec=689445342}, {tv_sec=26, tv_nsec=784387709}) = ? ERESTART_RESTARTBLOCK (Interrupted by signal)
+322765 13:53:54.820492 --- SIGRT_21 {si_signo=SIGRT_21, si_code=SI_USER, si_pid=323035, si_uid=1000} ---
+322765 13:53:54.820551 write(1, "HelloWorld Sig=53\n", 18) = 18
+322765 13:53:54.820622 rt_sigreturn({mask=[]}) = -1 EINTR (Interrupted system call)
+322765 13:53:54.820671 clock_nanosleep(CLOCK_REALTIME, 0, {tv_sec=26, tv_nsec=784387709}, 0x7fff8818d4a0) = 0
+322765 13:54:21.605757 write(1, "After Sig\n", 10) = 10
+322765 13:54:21.606111 exit_group(0)    = ?
+322765 13:54:21.607077 +++ exited with 0 +++
