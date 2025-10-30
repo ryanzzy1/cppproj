@@ -13,6 +13,11 @@ class ClassA
 public:
     void useDate(DataHolder& dh) {
         dh.sharedValue = 43;
+        for(int i = 0; i < 5; ++i) {            
+            std::cout << "Shared value in ClassA: " << dh.sharedValue << std::endl;
+            dh.sharedValue++;
+        }
+        
     }
 };
 
@@ -20,7 +25,10 @@ class ClassB
 {
 public:
     void useDate(DataHolder& dh) {
-        std::cout << "Shared value in ClassB: " << dh.sharedValue << std::endl;
+        for(int i = 0; i < 5; ++i) {
+            std::cout << "Shared value in ClassB: " << dh.sharedValue << std::endl;
+            if (dh.sharedValue > 47) break; // 防止无限循环
+        }
     }
 };
 
