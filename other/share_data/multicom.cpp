@@ -16,29 +16,42 @@ private:
     mutable std::mutex mtx_;
     std::queue<T> queue_;
     std::condition_variable cv_;
+    std::atomic<bool> stop_{false};
 
 public:
     void push(T value) {
         std::lock_guard<std::mutex> lock(mtx_);
+        if(stop_) return;
         queue_.push(std::move(value));
         cv_.notify_one();
     }
 
     bool try_pop(T& value) {
         std::lock_guard<std::mutex> lock(mtx_);
-        if (queue_.empty()) {
+        if (queue_.empty() || stop_) {
             return false;
         }
+
         value = std::move(queue_.front());
         queue_.pop();
         return true;
     }
 
-    void wait_and_pop(T& value) {
+    bool wait_and_pop(T& value){
         std::unique_lock<std::mutex> lock(mtx_);
-        cv_.wait(lock, [this]() { return !queue_.empty(); });
+        cv_.wait(lock, [this](){return stop_ || !queue_.empty();});
+        if(stop_ && queue_.empty()) {
+            return false;
+        }
+
         value = std::move(queue_.front());
         queue_.pop();
+        return true;
+    }
+
+    void stop() {
+        stop_.store(true);
+        cv_.notify_all();
     }
 
     bool empty() const {
@@ -74,6 +87,7 @@ public:
 
     void stop() {
         running_ = false;
+        param_queue_.stop();
         cv_.notify_all();
     }
 
@@ -118,8 +132,8 @@ public:
         return param_queue_.try_pop(param);
     }
 
-    void waitForParam(int& param) {
-        param_queue_.wait_and_pop(param);
+    bool waitForParam(int& param) {
+       return param_queue_.wait_and_pop(param);
     }
 };
 
@@ -168,10 +182,10 @@ private:
     void eventDrivenMode() {
         while (running_.load()) {
             int param;
-            a_ptr_->waitForParam(param);
-            
-            if (!running_.load()) break;
-            
+            if (!a_ptr_->waitForParam(param)) {
+                break;
+            }
+
             std::cout << "B事件驱动模式获取参数：" << param << std::endl;
             processParam(param);
         }
