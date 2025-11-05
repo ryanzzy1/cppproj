@@ -96,7 +96,7 @@ public:
         
         // 启动使用参数的线程
         std::thread(&B::useParam, this).detach();
-        std::thread(&B::useParamEventDriven, this).detach();
+        // std::thread(&B::useParamEventDriven, this).detach();
     }
 
     void stop() {
