@@ -24,43 +24,79 @@ class Strategy
 {
 public:
     virtual void AlgorithmInterface() = 0;
+
+    virtual ~Strategy() = 0;
 };
 
-class StrategyA : public Strategy
+Strategy::~Strategy(){}
+
+class ccStrategyA : public Strategy
 {
 public:
     void AlgorithmInterface()
     {
-        cout << "It's StrategyA implementation." << endl;
+        cout << "It's ccStrategyA implementation." << endl;
     }
+
+    ~ccStrategyA(){}
 };
 
-class StrategyB : public Strategy
+class ccStrategyB : public Strategy
 {
 public:
     void AlgorithmInterface()
     {
-        cout << "It's StrategyB implementation." << endl;
+        cout << "It's ccStrategyB implementation." << endl;
     }
+
+    ~ccStrategyB(){}
 };
 
-class StrategyC : public Strategy
+class ccStrategyC : public Strategy
 {
 public:
     void AlgorithmInterface()
     {
-        cout << "It's StrategyC implementation." << endl;
+        cout << "It's ccStrategyC implementation." << endl;
     }
+
+    ~ccStrategyC(){}
 };
 
 class Context
 {
 public:
-    Context(Strategy *pStrategyArg) : pStrategy(pStrategyArg){}
+    Context(STRATEGYTYPE strategyType)
+    {
+        switch (strategyType)
+        {
+        case StrategyA:
+            pStrategy = new ccStrategyA;
+            break;
+
+        case StrategyB:
+            pStrategy = new ccStrategyB;
+            break;
+
+        case StrategyC: 
+            pStrategy = new ccStrategyC;
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    ~Context()
+    {
+        if(pStrategy) delete pStrategy;
+    }
 
     void ContextInterface()
     {
-        pStrategy->AlgorithmInterface();
+        if(pStrategy){
+            pStrategy->AlgorithmInterface();
+        }
     }
 
 private:
@@ -69,25 +105,11 @@ private:
 
 int main()
 {
-    Strategy *pStrategyA = new StrategyA;
+    Context *pContext = new Context(StrategyA);
 
-    Strategy *pStrategyB = new StrategyB;
+    pContext->ContextInterface();
 
-    Strategy *pStrategyC = new StrategyC;
-
-    Context *pContextA = new Context(pStrategyA);
-
-    Context *pContextB = new Context(pStrategyB);
-
-    Context *pContextC = new Context(pStrategyC);
-
-    pContextA->ContextInterface();
-
-    pContextB->ContextInterface();
-
-    pContextC->ContextInterface();
-
-    if (pStrategyA) delete pStrategyA;
+    if (pContext) delete pContext;
 
     return 0;
 
