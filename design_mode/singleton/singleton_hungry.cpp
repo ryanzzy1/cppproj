@@ -61,6 +61,7 @@ Singleton1 *Singleton1::m_Singleton1 = nullptr; // static 初始化一次，可�
 /**
  * Singleton2 
  * 
+ * 
  */
 class Singleton2
 {
