@@ -35,7 +35,3 @@ singleton* singleton::instance(){
         p = new singleton();
     return p;
 }
-
-
-
-
