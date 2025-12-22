@@ -7,8 +7,46 @@
 #include <functional>
 #include <iomanip>
 
-class timer{
+using namespace std;
+
+class A {
+
 public:
+    void receive(int y) {
+        share = y;
+        cout << "share:" << share << endl;
+    }
+
+    void setcallback(std::function<void(int)> callback) {
+        onChange = callback;
+    }
+
+    void update(int newdata) {
+        share = newdata;
+        if(onChange){
+            onChange(share);
+        }
+    }
+
+private:
+    int share;
+
+    std::function<void(int)> onChange;
+};
+
+class timer{
+
+public:
+
+    void updatedata(int y){
+        commn_data = y;
+        cout << "commn_data: " << commn_data << endl;
+    }
+
+    int send(int x){
+        commn_data = x;
+        return commn_data;
+    }
 
     timer(std::chrono::seconds t, bool go) : duration(t), running(go){}
 
@@ -36,6 +74,8 @@ private:
 
     bool running;
 
+    int commn_data;
+
     void work_job(){
         while(running){
             auto now = std::chrono::steady_clock::now();
@@ -52,6 +92,7 @@ private:
         }
     }
 };
+
 typedef struct {
     uint8_t can_interface_index;    // CAN接口索引 [0:15]
     uint32_t can_id;                // CAN ID
@@ -70,10 +111,15 @@ int main()
         std::cout << "test[0] = "<< std::hex << std::setw(2)<< "0x0"<<(unsigned int)test[0].data[i] << std::endl;
         std::cout << "test[1] = "<< std::hex << std::setw(2) <<"0x0"<<(unsigned int)test[1].data[i] << std::endl;
     }
+    A a;
     
     timer ttt(std::chrono::seconds(2), true);
-    ttt.start();
 
+    a.setcallback(std::bind(&timer::updatedata, &ttt, std::placeholders::_1));
+    a.update(400);
+
+    // a.receive(ttt.send(5));
+    ttt.start();
     
     std::this_thread::sleep_for(std::chrono::seconds(5));
     ttt.stop();

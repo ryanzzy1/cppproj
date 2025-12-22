@@ -166,6 +166,10 @@ private:
         }
     }
 };
+std::atomic<bool> slpmod_flag{false};
+bool slpmod_prests = false;
+std::atomic_bool slpmod_nonoff2off_auto_run{false};
+int timer1;
 
 // 示例回调函数
 void timerCallback(int timer_id) {
@@ -178,54 +182,154 @@ void complexTask() {
     std::cout << "复杂任务完成" << std::endl;
 }
 
+// void tfunc(){
+//     while(slpmod_nonoff2off_auto_run){
+//         timer1 = timer.addNonBlockingTimer(std::chrono::seconds(5), [&](){
+//             if (slpmod_prests == true) {
+//                 timer.cancelTimer(timer1);
+//                 std::cout << "Timer canceled" << std::endl;
+//             } else {
+//                 slpmod_nonoff2off_auto_run = false;
+//             }
+//             std::cout << "while quit!" << std::endl;
+//         });
+//     }
+// }
+int ktime = 1;
+
+std::atomic_bool slp_stop{false};
+
+void pwrcheck(){
+    while(!slp_stop){
+        std::chrono::steady_clock::time_point next_run{std::chrono::steady_clock::now()};
+        std::chrono::steady_clock::duration duration{std::chrono::seconds(1)};
+        
+        std::cout << "slp_stop: " << slp_stop << std::endl;
+
+        next_run += duration;
+        std::this_thread::sleep_until(next_run);
+        
+    } // 电源状态判断，置不同flag
+        std::cout << "outside slp_stop: " << slp_stop << std::endl;
+
+}
+
+void test(){
+    std::chrono::steady_clock::time_point start_time{std::chrono::steady_clock::now()};
+    std::chrono::steady_clock::duration duration{std::chrono::milliseconds(100)};
+    int count = (ktime * 10 * 1000) / 100;
+    while(count){
+        
+        std::cout << "COunt = " << count << "duration: " << duration.count() << " ms" << std::endl;
+        if(slp_stop){
+            count = (ktime * 1 * 1000) / 100;
+        } else{
+            count--;
+        }
+        start_time += duration;
+        std::this_thread::sleep_until(start_time);
+    }
+}
+
+// func 逻辑判断
+
 int main() {
+
+    int time_eslap = 10;
+
     DualModeTimer timer;
     timer.start();
     
     std::cout << "=== 阻塞定时器示例 ===" << std::endl;
-    
-    // 在主线程中使用阻塞定时器
-    std::thread main_thread([&timer]() {
-        std::cout << "主线程开始工作" << std::endl;
-        
-        // 阻塞定时器：会阻塞当前线程3秒
-        timer.addBlockingTimer(std::chrono::seconds(3));
-        
-        std::cout << "主线程继续工作" << std::endl;
-        
-        // 再阻塞2秒
-        timer.addBlockingTimer(std::chrono::seconds(2));
-        
-        std::cout << "主线程工作完成" << std::endl;
+
+    auto timer_2 = timer.addNonBlockingTimer(std::chrono::seconds(10), [&time_eslap](){
+        // std::chrono::steady_clock::time_point next_run{std::chrono::steady_clock::now()};
+        // std::chrono::steady_clock::duration duration{std::chrono::seconds(1)};
+        // while(time_eslap){
+        //     time_eslap--;
+        //     std::cout << "time_eslap = " << time_eslap << std::endl;
+        //     next_run += duration;
+        //     std::this_thread::sleep_until(next_run);
+        //     // std::this_thread::sleep_for(std::chrono::seconds(1));
+        // }
+        slp_stop = true;
     });
+
+    std::thread tt(pwrcheck);
+    std::thread test1(test);
     
-    std::cout << "=== 非阻塞定时器示例 ===" << std::endl;
+    // std::thread ([&](){
+    //     if(time_eslap < 5) {
+    //      timer.cancelTimer(timer_2);
+    //      time_eslap = 10;
+
+    //     }
+    // });
+    // auto strttime = std::chrono::steady_clock::now();
+    // timer.addBlockingTimer(std::chrono::seconds(5));
+
+    // std::thread slptrans([&](){while(!slpmod_flag){
+    //     std::this_thread::sleep_for(std::chrono::seconds(10));
+    //     slpmod_nonoff2off_auto_run = true;
+    // }});
+
+    // std::thread check([&](){
+    //     std::this_thread::sleep_for(std::chrono::seconds(3));
+    //     slpmod_prests = true;
+    // });
+
+    // auto endtime = std::chrono::steady_clock::now();
+    // auto time_duration = endtime - strttime;
+    // std::cout << "时间段：" << std::chrono::duration_cast<std::chrono::seconds>(time_duration).count() << std::endl;
+
+    // 在主线程中使用阻塞定时器
+    // std::thread main_thread([&timer]() {
+    //     std::cout << "主线程开始工作" << std::endl;
+    //     auto start = std::chrono::steady_clock::now();
+        // 阻塞定时器：会阻塞当前线程3秒
+        // timer.addBlockingTimer(std::chrono::seconds(3));
+        // auto time_end = std::chrono::steady_clock::now();
+
+        // auto time_duration = time_end - start;
+        // std::cout << "时间段：" << std::chrono::duration_cast<std::chrono::seconds>(time_duration).count() << std::endl;
+        
+        // std::cout << "主线程继续工作" << std::endl;
+        
+        // // 再阻塞2秒
+        // timer.addBlockingTimer(std::chrono::seconds(2));
+        
+        // std::cout << "主线程工作完成" << std::endl;
+    // });
     
-    // 添加多个非阻塞定时器
-    int timer1 = timer.addNonBlockingTimer(std::chrono::seconds(2), 
-                                         []() { timerCallback(1); });
+    // std::cout << "=== 非阻塞定时器示例 ===" << std::endl;
     
-    int timer2 = timer.addNonBlockingTimer(std::chrono::seconds(4), 
-                                         []() { complexTask(); });
+    // // 添加多个非阻塞定时器
+    // int timer1 = timer.addNonBlockingTimer(std::chrono::seconds(2), 
+    //                                      []() { timerCallback(1); });
     
-    int timer3 = timer.addNonBlockingTimer(std::chrono::seconds(1), 
-                                         []() { timerCallback(3); });
+    // int timer2 = timer.addNonBlockingTimer(std::chrono::seconds(4), 
+    //                                      []() { complexTask(); });
     
-    // 主线程可以继续执行其他任务
-    std::cout << "主线程执行其他任务..." << std::endl;
-    for (int i = 0; i < 5; ++i) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::cout << "主任务进度: " << (i + 1) << "/5" << std::endl;
-    }
+    // int timer3 = timer.addNonBlockingTimer(std::chrono::seconds(1), 
+    //                                      []() { timerCallback(3); });
     
-    // 可以取消尚未执行的定时器
-    timer.cancelTimer(timer2);
-    std::cout << "定时器2已取消" << std::endl;
+    // // 主线程可以继续执行其他任务
+    // std::cout << "主线程执行其他任务..." << std::endl;
+    // for (int i = 0; i < 5; ++i) {
+    //     std::this_thread::sleep_for(std::chrono::seconds(1));
+    //     std::cout << "主任务进度: " << (i + 1) << "/5" << std::endl;
+    // }
     
-    main_thread.join();
+    // // 可以取消尚未执行的定时器
+    // timer.cancelTimer(timer2);
+    // std::cout << "定时器2已取消" << std::endl;
+    
+    // main_thread.join();
+    tt.join();
+    test1.join();
     
     // 等待所有非阻塞定时器完成
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     timer.stop();
     
     return 0;
