@@ -12,6 +12,7 @@
 #include <random>
 #include <csignal>
 #include <future>
+#include <algorithm>
 
 // 改进的DualModeTimer类，支持优雅终止
 class DualModeTimer {
@@ -24,30 +25,37 @@ public:
         NON_BLOCKING // 非阻塞模式：定时结束后回调通知
     };
     
-    // 定时任务结构
-    struct TimerTask {
+    // 定时任务结构 - 只包含基础数据类型
+    struct TimerTaskBase {
         int id;
         TimerMode mode;
         std::chrono::milliseconds duration;
-        TimerCallback callback;
         std::chrono::steady_clock::time_point start_time;
-        std::atomic<bool> cancelled{false};
-        std::shared_ptr<std::promise<bool>> promise; // 用于阻塞定时器的同步
+        std::chrono::steady_clock::time_point expiry_time;
+        bool cancelled;
         
         // 用于优先级队列的比较函数
-        bool operator<(const TimerTask& other) const {
-            return start_time + duration > other.start_time + other.duration;
+        bool operator<(const TimerTaskBase& other) const {
+            return expiry_time > other.expiry_time; // 最小堆
         }
     };
 
 private:
+    // 包含回调的完整任务信息
+    struct TimerTaskFull {
+        TimerTaskBase base;
+        TimerCallback callback;
+        std::shared_ptr<std::promise<bool>> promise;
+        std::atomic<bool> promise_set{false}; // 防止promise被多次设置
+    };
+
     std::atomic<bool> running_{false};
     std::atomic<bool> shutdown_requested_{false};
     std::thread manager_thread_;
     std::mutex tasks_mutex_;
     std::condition_variable cv_;
-    std::priority_queue<TimerTask> tasks_;
-    std::map<int, std::shared_ptr<TimerTask>> active_tasks_;
+    std::priority_queue<TimerTaskBase> tasks_queue_; // 只存储基础数据
+    std::map<int, std::shared_ptr<TimerTaskFull>> active_tasks_; // 存储完整任务信息
     std::atomic<int> next_id_{0};
     std::vector<std::thread> callback_threads_;
     std::mutex callback_threads_mutex_;
@@ -127,9 +135,15 @@ public:
         auto future = promise->get_future();
         
         // 创建非阻塞定时器来驱动阻塞定时
-        int task_id = addNonBlockingTimer(duration, [promise]() {
-            promise->set_value(true);
-        });
+        int task_id = addNonBlockingTimerImpl(duration, 
+                                            [promise]() {
+                                                try {
+                                                    promise->set_value(true);
+                                                } catch (const std::future_error& e) {
+                                                    // 忽略promise已设置的情况
+                                                }
+                                            },
+                                            promise);
         
         if (task_id < 0) {
             std::cerr << "[阻塞定时器] 创建失败" << std::endl;
@@ -142,13 +156,22 @@ public:
         // 分块等待，以便可以检查停止条件
         while (std::chrono::steady_clock::now() < end_time) {
             auto remaining = end_time - std::chrono::steady_clock::now();
-            auto wait_time = std::min(remaining, std::chrono::milliseconds(100));
+            
+            // 确保类型一致，使用相同的duration类型
+            auto wait_time = std::min(remaining, 
+                                     std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                         std::chrono::milliseconds(100)));
             
             // 检查future状态
             auto status = future.wait_for(wait_time);
             if (status == std::future_status::ready) {
                 // 定时器正常完成
-                bool result = future.get();
+                bool result = false;
+                try {
+                    result = future.get();
+                } catch (...) {
+                    result = false;
+                }
                 std::cout << "[阻塞定时器] 结束: ID=" << task_id 
                           << (result ? " (成功)" : " (被取消)") << std::endl;
                 return result;
@@ -172,7 +195,12 @@ public:
         // 等待最后一点时间
         auto status = future.wait_for(std::chrono::milliseconds(100));
         if (status == std::future_status::ready) {
-            bool result = future.get();
+            bool result = false;
+            try {
+                result = future.get();
+            } catch (...) {
+                result = false;
+            }
             std::cout << "[阻塞定时器] 结束: ID=" << task_id 
                       << (result ? " (成功)" : " (被取消)") << std::endl;
             return result;
@@ -186,34 +214,7 @@ public:
     
     // 添加非阻塞定时器：定时结束后通过回调函数通知
     int addNonBlockingTimer(std::chrono::milliseconds duration, TimerCallback callback) {
-        if (shutdown_requested_) {
-            std::cerr << "[警告] 定时器正在关闭，无法添加新定时器" << std::endl;
-            return -1;
-        }
-        
-        std::lock_guard<std::mutex> lock(tasks_mutex_);
-        
-        int id = ++next_id_;
-        auto task_ptr = std::make_shared<TimerTask>();
-        task_ptr->id = id;
-        task_ptr->mode = NON_BLOCKING;
-        task_ptr->duration = duration;
-        task_ptr->callback = [this, id, callback]() {
-            if (!active_tasks_[id]->cancelled.load()) {
-                std::cout << "[非阻塞定时器] 执行回调: ID=" << id << std::endl;
-                callback();
-            }
-        };
-        task_ptr->start_time = std::chrono::steady_clock::now();
-        
-        tasks_.push(*task_ptr);
-        active_tasks_[id] = task_ptr;
-        cv_.notify_one();
-        
-        std::cout << "[非阻塞定时器] 添加: ID=" << id 
-                  << ", 时长=" << duration.count() << "ms" << std::endl;
-        
-        return id;
+        return addNonBlockingTimerImpl(duration, callback, nullptr);
     }
     
     // 取消定时器
@@ -221,18 +222,21 @@ public:
         std::lock_guard<std::mutex> lock(tasks_mutex_);
         auto it = active_tasks_.find(timer_id);
         if (it != active_tasks_.end()) {
-            it->second->cancelled.store(true);
+            it->second->base.cancelled = true;
             
             // 如果有关联的promise，设置为false表示被取消
-            if (it->second->promise) {
+            if (it->second->promise && !it->second->promise_set.load()) {
                 try {
+                    it->second->promise_set.store(true);
                     it->second->promise->set_value(false);
+                    std::cout << "[定时器] 取消: ID=" << timer_id << " (设置promise为false)" << std::endl;
                 } catch (const std::future_error& e) {
                     // 忽略promise已设置的情况
+                    std::cout << "[定时器] 取消时promise已设置: ID=" << timer_id << std::endl;
                 }
+            } else {
+                std::cout << "[定时器] 取消: ID=" << timer_id << " (无promise或promise已设置)" << std::endl;
             }
-            
-            std::cout << "[定时器] 取消: ID=" << timer_id << std::endl;
             return true;
         }
         return false;
@@ -246,10 +250,11 @@ public:
         
         for (auto& pair : active_tasks_) {
             auto& task = pair.second;
-            task->cancelled.store(true);
+            task->base.cancelled = true;
             
-            if (task->promise) {
+            if (task->promise && !task->promise_set.load()) {
                 try {
+                    task->promise_set.store(true);
                     task->promise->set_value(false);
                 } catch (const std::future_error& e) {
                     // 忽略promise已设置的情况
@@ -258,7 +263,7 @@ public:
         }
         
         // 清空任务队列
-        tasks_ = std::priority_queue<TimerTask>();
+        tasks_queue_ = std::priority_queue<TimerTaskBase>();
         active_tasks_.clear();
     }
     
@@ -279,62 +284,158 @@ public:
     }
 
 private:
+    // 内部实现：添加非阻塞定时器
+    int addNonBlockingTimerImpl(std::chrono::milliseconds duration, 
+                               TimerCallback callback,
+                               std::shared_ptr<std::promise<bool>> promise) {
+        if (shutdown_requested_) {
+            std::cerr << "[警告] 定时器正在关闭，无法添加新定时器" << std::endl;
+            return -1;
+        }
+        
+        std::lock_guard<std::mutex> lock(tasks_mutex_);
+        
+        int id = ++next_id_;
+        auto now = std::chrono::steady_clock::now();
+        auto expiry = now + duration;
+        
+        // 创建基础任务信息
+        TimerTaskBase base_task{
+            id,
+            NON_BLOCKING,
+            duration,
+            now,
+            expiry,
+            false
+        };
+        
+        // 创建完整任务信息
+        auto full_task = std::make_shared<TimerTaskFull>();
+        full_task->base = base_task;
+        full_task->callback = [this, id, callback]() {
+            // 检查任务是否被取消
+            bool cancelled = false;
+            {
+                std::lock_guard<std::mutex> lock(tasks_mutex_);
+                auto it = active_tasks_.find(id);
+                if (it != active_tasks_.end()) {
+                    cancelled = it->second->base.cancelled;
+                }
+            }
+            
+            if (!cancelled) {
+                std::cout << "[非阻塞定时器] 执行回调: ID=" << id << std::endl;
+                callback();
+            } else {
+                std::cout << "[非阻塞定时器] 任务已取消，跳过回调: ID=" << id << std::endl;
+            }
+        };
+        full_task->promise = promise;
+        full_task->promise_set.store(false);
+        
+        // 添加到队列和活动任务列表
+        tasks_queue_.push(base_task);
+        active_tasks_[id] = full_task;
+        cv_.notify_one();
+        
+        std::cout << "[非阻塞定时器] 添加: ID=" << id 
+                  << ", 时长=" << duration.count() << "ms" << std::endl;
+        
+        return id;
+    }
+    
     // 管理器线程函数
     void managerThread() {
         while (running_ && !shutdown_requested_) {
             std::unique_lock<std::mutex> lock(tasks_mutex_);
             
-            if (tasks_.empty()) {
+            if (tasks_queue_.empty()) {
                 // 等待新任务或关闭请求
                 cv_.wait_for(lock, std::chrono::milliseconds(100));
                 continue;
             }
             
-            auto next_task = tasks_.top();
+            auto next_task_base = tasks_queue_.top();
             auto now = std::chrono::steady_clock::now();
-            auto wake_time = next_task.start_time + next_task.duration;
             
-            if (now >= wake_time) {
+            if (now >= next_task_base.expiry_time) {
                 // 定时器到期
-                tasks_.pop();
+                tasks_queue_.pop();
                 
                 // 检查任务是否仍然有效且未取消
-                auto it = active_tasks_.find(next_task.id);
-                if (it != active_tasks_.end() && !it->second->cancelled.load()) {
+                auto it = active_tasks_.find(next_task_base.id);
+                if (it != active_tasks_.end()) {
                     auto task = it->second;
-                    active_tasks_.erase(it);
                     
-                    // 执行回调（非阻塞定时器）
-                    if (task->mode == NON_BLOCKING) {
-                        // 在新线程中执行回调，避免阻塞管理器线程
-                        std::lock_guard<std::mutex> cb_lock(callback_threads_mutex_);
-                        callback_threads_.emplace_back([this, task]() {
-                            try {
-                                task->callback();
-                            } catch (const std::exception& e) {
-                                std::cerr << "[定时器] 回调异常: " << e.what() << std::endl;
-                            }
-                            
-                            // 从线程列表中移除自己
-                            {
-                                std::lock_guard<std::mutex> lock(callback_threads_mutex_);
-                                auto it = std::find_if(callback_threads_.begin(), callback_threads_.end(),
-                                                      [](const std::thread& t) { return t.get_id() == std::this_thread::get_id(); });
-                                if (it != callback_threads_.end()) {
-                                    it->detach(); // 先分离
-                                    callback_threads_.erase(it);
+                    // 检查是否已取消
+                    if (!task->base.cancelled) {
+                        // 从活动任务中移除
+                        active_tasks_.erase(it);
+                        
+                        // 执行回调（非阻塞定时器）
+                        if (task->base.mode == NON_BLOCKING) {
+                            // 在新线程中执行回调，避免阻塞管理器线程
+                            std::lock_guard<std::mutex> cb_lock(callback_threads_mutex_);
+                            callback_threads_.emplace_back([this, task]() {
+                                try {
+                                    std::cout << "[定时器] 触发: ID=" << task->base.id << std::endl;
+                                    task->callback();
+                                    
+                                    // 如果有关联的promise，设置为true表示成功执行
+                                    if (task->promise && !task->promise_set.load()) {
+                                        try {
+                                            task->promise_set.store(true);
+                                            task->promise->set_value(true);
+                                            std::cout << "[定时器] 设置promise为true: ID=" << task->base.id << std::endl;
+                                        } catch (const std::future_error& e) {
+                                            std::cerr << "[定时器] 设置promise异常: " << e.what() << " ID=" << task->base.id << std::endl;
+                                        }
+                                    }
+                                } catch (const std::exception& e) {
+                                    std::cerr << "[定时器] 回调异常: " << e.what() << " ID=" << task->base.id << std::endl;
+                                    // 即使回调异常，也要设置promise
+                                    if (task->promise && !task->promise_set.load()) {
+                                        try {
+                                            task->promise_set.store(true);
+                                            task->promise->set_exception(std::current_exception());
+                                        } catch (const std::future_error&) {
+                                            // 忽略promise已设置的情况
+                                        }
+                                    }
                                 }
-                            }
-                            shutdown_cv_.notify_one();
-                        });
+                                
+                                // 从线程列表中移除自己
+                                {
+                                    std::lock_guard<std::mutex> lock(callback_threads_mutex_);
+                                    auto thread_id = std::this_thread::get_id();
+                                    for (auto it = callback_threads_.begin(); it != callback_threads_.end(); ++it) {
+                                        if (it->get_id() == thread_id) {
+                                            if (it->joinable()) {
+                                                it->detach();
+                                            }
+                                            callback_threads_.erase(it);
+                                            break;
+                                        }
+                                    }
+                                }
+                                shutdown_cv_.notify_one();
+                            });
+                        }
+                    } else {
+                        // 任务已被取消，从活动任务中移除
+                        std::cout << "[定时器] 跳过已取消的任务: ID=" << next_task_base.id << std::endl;
+                        active_tasks_.erase(it);
                     }
-                } else if (it != active_tasks_.end()) {
-                    // 任务已被取消，从活动任务中移除
-                    active_tasks_.erase(it);
+                } else {
+                    // 任务已被移除（可能已被取消）
+                    std::cout << "[定时器] 任务已不存在，跳过: ID=" << next_task_base.id << std::endl;
                 }
             } else {
                 // 等待直到下一个定时器到期或收到关闭请求
-                auto wait_time = std::min(wake_time - now, std::chrono::milliseconds(100));
+                auto time_until_wake = next_task_base.expiry_time - now;
+                auto wait_time = std::min(time_until_wake, 
+                                         std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                             std::chrono::milliseconds(100)));
                 cv_.wait_for(lock, wait_time);
             }
         }
@@ -353,7 +454,6 @@ private:
 // 全局定时器实例和停止标志
 DualModeTimer global_timer;
 std::atomic<bool> should_exit{false};
-std::atomic<bool> blocking_timer_running{false};
 
 // 信号处理函数
 void signal_handler(int signal) {
@@ -438,7 +538,6 @@ int main() {
         
         std::thread blocking_thread([]() {
             std::cout << "[阻塞定时器线程] 开始" << std::endl;
-            blocking_timer_running = true;
             
             // 阻塞定时器，但可以响应停止请求
             bool success = global_timer.addBlockingTimer(
@@ -449,16 +548,24 @@ int main() {
                 }
             );
             
-            blocking_timer_running = false;
             std::cout << "[阻塞定时器线程] 结束，结果: " 
                       << (success ? "成功" : "失败/被取消") << std::endl;
         });
+        
+        // 等待一段时间
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        
+        // 模拟提前取消一些定时器
+        std::cout << "\n--- 模拟取消部分定时器 ---" << std::endl;
+        if (!timer_ids.empty()) {
+            global_timer.cancelTimer(timer_ids[0]);
+        }
         
         // 示例4: 模拟用户交互循环
         std::cout << "\n--- 主循环开始 (按Ctrl+C退出) ---" << std::endl;
         
         int counter = 0;
-        while (!should_exit && counter < 20) {
+        while (!should_exit && counter < 10) {
             std::cout << "[主循环] 迭代 " << ++counter 
                       << "，活动定时器: " << global_timer.getActiveTimerCount() 
                       << "，退出标志: " << should_exit.load() << std::endl;
@@ -490,12 +597,6 @@ int main() {
             while (std::chrono::steady_clock::now() < start_wait + wait_duration) {
                 if (should_exit.load()) break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-            
-            // 模拟外部事件导致退出
-            if (counter == 10) {
-                std::cout << "\n[模拟] 触发紧急停止条件！" << std::endl;
-                should_exit = true;
             }
         }
         
