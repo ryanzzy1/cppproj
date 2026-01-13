@@ -494,7 +494,7 @@ int main() {
     global_timer.start();
     
     std::vector<int> timer_ids;
-    
+    /*
     try {
         // 示例1: 添加几个非阻塞定时器
         std::cout << "\n--- 添加非阻塞定时器 ---" << std::endl;
@@ -607,8 +607,27 @@ int main() {
         
     } catch (const std::exception& e) {
         std::cerr << "\n[异常] " << e.what() << std::endl;
-    }
+    }*/
+    std::cout << "\n[BLOCK]---阻塞定时器开始5s计时: ---" << std::endl;
+
+    global_timer.addBlockingTimer(std::chrono::milliseconds(5000), []() {
+        return should_exit.load() || global_timer.isShutdownRequested();
+    });
+    std::cout << "\n[BLOCK]--- 正在停止定时器管理器 ---" << std::endl;
+
+    std::cout << "\n[NONBLOCK]---阻塞定时器开始5s计时: ---" << std::endl;
+
+    global_timer.addNonBlockingTimer(
+        std::chrono::milliseconds(5000),
+        []() {
+            std::cout << "[非阻塞定时器] 5秒后回调执行" << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+        }
+    );
     
+    std::cout << "\n[NONBLOCK]--- 正在停止定时器管理器 ---" << std::endl;
+
+
     // 优雅停止定时器
     std::cout << "\n--- 正在停止定时器管理器 ---" << std::endl;
     global_timer.stop();
