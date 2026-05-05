@@ -19,6 +19,4 @@ public:
                         const StringBad & st);
 };
 
-
-
 #endif
